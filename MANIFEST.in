@@ -1,0 +1,5 @@
+
+include school/schema.sql
+graft school/static
+graft school/templates
+global-exclude *.pyc
