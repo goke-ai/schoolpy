@@ -135,3 +135,14 @@ input[type=submit] {
     align-self: start;
     min-width: 10em;
 }
+
+.errors {
+    color: red;
+    margin-bottom: 1em;
+}
+
+.content input + .errors,
+.content textarea + .errors {
+    font-size: smaller;
+    margin-top: -0.8em;
+}

@@ -1,12 +1,8 @@
 from datetime import datetime
-from flask_migrate import Migrate
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, ForeignKey, Integer, String, TIMESTAMP, DateTime, Text
-from school.database import Base
+from flask_login import UserMixin
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Text
 
-db = SQLAlchemy()
-migrate = Migrate()
-
+from . import db
 
 # CREATE TABLE user (
 #   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15,7 +11,7 @@ migrate = Migrate()
 # );
 
 
-class User(db.Model):
+class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
     name = Column(String(50), nullable=False)
@@ -29,7 +25,7 @@ class User(db.Model):
         # self.password = password
 
     def __repr__(self):
-        return f'<User {self.name!r}>'
+        return f'User({self.name!r})'
 
 
 # CREATE TABLE post (
@@ -49,15 +45,12 @@ class Post(db.Model):
     title = Column(Text, nullable=False)
     body = Column(Text, nullable=False)
 
-    def __init__(self, author_id=None,
-                 created=None,
-                 title=None,
-                 body=None):
-        super()
-        self.author_id = author_id
-        self.created = created
-        self.title = title
-        self.body = body
+    def __init__(self, **kwargs):
+        super(Post, self).__init__(**kwargs)
+        # self.author_id = author_id
+        # self.created = created
+        # self.title = title
+        # self.body = body
 
     def __repr__(self):
-        return f'<Post {self.title!r}>'
+        return f'Post({self.title!r})'

@@ -1,36 +1,77 @@
+from datetime import datetime
 import os
-import tempfile
+
+from werkzeug.security import generate_password_hash
 
 import pytest
 from school import create_app
-from school.db import get_db, init_db
+from school.models import Post, User, db
 
-with open(os.path.join(os.path.dirname(__file__), 'data.sql'), 'rb') as f:
-    _data_sql = f.read().decode('utf8')
+
+def init(app):
+    with app.app_context():
+        db.create_all()
+
+        user = User(name="test",
+                    email='test@ark.com',
+                    password=generate_password_hash('test'))
+
+        other = User(name="other",
+                     email='other@ark.com',
+                     password=generate_password_hash('other'))
+
+        db.session.add(user)
+        db.session.add(other)
+        db.session.commit()
+
+        post = Post(author_id=user.id,
+                    title='test title',
+                    body='test\nbody',
+                    created=datetime(2018, 1, 1, 0, 0, 0)
+                    )
+        db.session.add(post)
+        db.session.commit()
+
+
+def close(app):
+    with app.app_context():
+        db.session.remove()
+        db.drop_all()
+
+
+@pytest.fixture
+def load_db(app):
+    def _make_db():
+        init(app)
+
+    yield _make_db
+
+    close(app)
 
 
 @pytest.fixture
 def app():
-    db_fd, db_path = tempfile.mkstemp()
-
     app = create_app({
         'TESTING': True,
-        'DATABASE': db_path,
+        'SQLALCHEMY_DATABASE_URI': os.environ.get('TEST_DATABASE_URL') or
+        'sqlite:///' + os.path.join('school-test.sqlite'),
+        'WTF_CSRF_ENABLED':False
     })
 
     with app.app_context():
-        init_db()
-        get_db().executescript(_data_sql)
+        # init(app)
+        pass
 
     yield app
 
-    os.close(db_fd)
-    os.unlink(db_path)
+    with app.app_context():
+        close(app)
+        pass
 
 
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    return app.test_client(use_cookies=True)
 
 
 @pytest.fixture

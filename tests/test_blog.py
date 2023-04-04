@@ -1,9 +1,13 @@
 import pytest
 
-from school.db import get_db
+from conftest import init, close
+
+from school.models import Post, db
 
 
-def test_index(client, auth):
+def test_index(client, auth, load_db):
+    load_db()
+
     response = client.get('/')
     assert b'Log In' in response.data
     assert b'Register' in response.data
@@ -27,12 +31,14 @@ def test_login_required(client, path):
     assert response.headers['Location'] == '/auth/login'
 
 
-def test_author_required(app, client, auth):
+def test_author_required(app, client, auth, load_db):
+    load_db()
+
     # change the post author to another user
     with app.app_context():
-        db = get_db()
-        db.execute('UPDATE post SET author_id = 2 WHERE id = 1')
-        db.commit()
+        post = db.get_or_404(Post, 1)
+        post.author_id = 2
+        db.session.commit()
 
     auth.login()
     # current user can't modify other user's post
@@ -46,50 +52,57 @@ def test_author_required(app, client, auth):
     '/2/update',
     '/2/delete',
 ))
-def test_exists_required(client, auth, path):
+def test_exists_required(client, auth, path, load_db):
+    load_db()
+
     auth.login()
     assert client.post(path).status_code == 404
 
 
-def test_create(client, auth, app):
+def test_create(client, auth, app, load_db):
+    load_db()
+
     auth.login()
     assert client.get('/create').status_code == 200
     client.post('/create', data={'title': 'created', 'body': ''})
 
     with app.app_context():
-        db = get_db()
-        count = db.execute('SELECT COUNT(id) FROM post').fetchone()[0]
+        posts = db.session.execute(db.select(Post)).scalars().all()
+        count = len(posts)
         assert count == 2
 
 
-def test_update(client, auth, app):
+def test_update(client, auth, app, load_db):
+    load_db()
+
     auth.login()
     assert client.get('/1/update').status_code == 200
     client.post('/1/update', data={'title': 'updated', 'body': ''})
 
     with app.app_context():
-        db = get_db()
-        post = db.execute('SELECT * FROM post WHERE id = 1').fetchone()
-        assert post['title'] == 'updated'
+        post = db.session.execute(db.select(Post).filter_by(id=1)).scalar()
+        assert post.title == 'updated'
 
 
 @pytest.mark.parametrize('path', (
     '/create',
     '/1/update',
 ))
-def test_create_update_validate(client, auth, path):
+def test_create_update_validate(client, auth, path, load_db):
+    load_db()
+
     auth.login()
     response = client.post(path, data={'title': '', 'body': ''})
     assert b'Title is required.' in response.data
 
 
-def test_delete(client, auth, app):
+def test_delete(client, auth, app, load_db):
+    load_db()
+
     auth.login()
     response = client.post('/1/delete')
     assert response.headers['Location'] == '/'
 
     with app.app_context():
-        db = get_db()
-        post = db.execute('SELECT * FROM post WHERE id = 1').fetchone()
+        post = db.session.execute(db.select(Post).filter_by(id=1)).scalar()
         assert post is None
-        

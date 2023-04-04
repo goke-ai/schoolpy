@@ -1,14 +1,22 @@
 import os
 
 from flask import Flask
+from flask_login import LoginManager
+from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
 
+db = SQLAlchemy()
+migrate = Migrate()
+# login-manager
+login_manager = LoginManager()
+login_manager.login_view = 'auth.login'
+    
 def create_app(test_config=None):
 
     app = Flask(__name__, instance_relative_config=True)
 
     app.config.from_mapping(
         SECRET_KEY='dev',
-        DATABASE=os.path.join(app.instance_path, 'school-raw-dev.sqlite'),
         SQLALCHEMY_DATABASE_URI=os.environ.get('DEV_DATABASE_URL') or
         'sqlite:///' + os.path.join(app.instance_path, 'school-dev.sqlite')
     )
@@ -28,23 +36,24 @@ def create_app(test_config=None):
         return 'Hello, World!. Welcome to the School App!!'
 
     # database
-    # # db sqlite
-    # from . import db
-    # db.init_app(app)
-
     # sqlalchemy
-    from school.models import db, migrate
+    # from school.models import db, migrate
     db.init_app(app)
 
     # migrate
     migrate.init_app(app, db)
+    
+    # login-manager
+    login_manager.init_app(app)
 
-    # from school.database import init_app  # , db_session
-    # init_app(app)
+    from school.models import User
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        sql = db.select(User).where(User.id == int(user_id))
+        user = db.session.execute(sql).scalar()
+        return user
 
-    # @app.teardown_appcontext
-    # def shutdown_session(exception=None):
-    #     db_session.remove()
 
     # blueprint
     from . import auth
